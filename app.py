@@ -3,14 +3,31 @@ from flask_cors import CORS  # Import CORS
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+import gdown
+import os
 
 app = Flask(__name__)
 CORS(app)  # Allow all origins
 
-# Load Model (Ensure path is correct)
-MODEL_PATH = "backend/models/cotton_disease_model.h5"
+# Define Model Path
+MODEL_DIR = "backend/models"
+MODEL_PATH = os.path.join(MODEL_DIR, "cotton_disease_model.h5")
+
+# Ensure 'models' directory exists
+os.makedirs(MODEL_DIR, exist_ok=True)
+
+# Google Drive File ID
+file_id = "1ly8VuMzeXr7MDWLIqZnb1GVSszqTbFIH"
+
+# Download model if it doesn't exist
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model...")
+    gdown.download(f"https://drive.google.com/uc?id={file_id}", MODEL_PATH, quiet=False)
+
+# Load Model
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
+    print("Model loaded successfully!")
 except Exception as e:
     print("Error loading model:", str(e))
     model = None  # Prevent crashing if model fails to load
