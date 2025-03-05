@@ -1,7 +1,6 @@
 Flask
 tensorflow
-numpy
+numpy>=1.22,<2.0
 Pillow
 gunicorn
 gdown
-os
