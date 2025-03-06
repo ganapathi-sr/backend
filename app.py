@@ -7,7 +7,9 @@ from PIL import Image
 import gdown
 
 app = Flask(__name__, static_folder="frontend/build", static_url_path="")
-CORS(app)  # Allow frontend requests
+
+# Allow CORS only for your Netlify frontend
+CORS(app, resources={r"/*": {"origins": "https://effervescent-scone-53bb1e.netlify.app"}})
 
 # Define Model Path
 MODEL_DIR = "backend/models"
@@ -27,9 +29,9 @@ if not os.path.exists(MODEL_PATH):
 # Load Model
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
-    print("Model loaded successfully!")
+    print("✅ Model loaded successfully!")
 except Exception as e:
-    print("Error loading model:", str(e))
+    print("❌ Error loading model:", str(e))
     model = None  # Prevent crashing if model fails to load
 
 # Class Labels
@@ -43,7 +45,7 @@ def preprocess_image(image):
         image = np.expand_dims(image, axis=0)
         return image
     except Exception as e:
-        print("Error processing image:", str(e))
+        print("❌ Error processing image:", str(e))
         return None
 
 # Prediction Route
@@ -66,7 +68,7 @@ def predict():
     confidence = float(np.max(predictions))
 
     return jsonify({"disease": CLASS_LABELS[class_index], "confidence": confidence})
-    
+
 # Serve React Frontend
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
@@ -76,4 +78,5 @@ def serve_react_app(path):
     return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))  # Use environment variable for deployment
+    app.run(debug=True, host="0.0.0.0", port=port)
