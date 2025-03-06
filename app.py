@@ -1,13 +1,13 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS  # Import CORS
+from flask import Flask, send_from_directory, jsonify, request
+from flask_cors import CORS
+import os
 import tensorflow as tf
 import numpy as np
 from PIL import Image
 import gdown
-import os
 
-app = Flask(__name__)
-CORS(app)  # Allow all origins
+app = Flask(__name__, static_folder="client/build", static_url_path="")
+CORS(app)  # Allow frontend requests
 
 # Define Model Path
 MODEL_DIR = "backend/models"
@@ -66,6 +66,14 @@ def predict():
     confidence = float(np.max(predictions))
 
     return jsonify({"disease": CLASS_LABELS[class_index], "confidence": confidence})
+    
+# Serve React Frontend
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react_app(path):
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
