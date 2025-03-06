@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 import gdown
 
-app = Flask(__name__, static_folder="client/build", static_url_path="")
+app = Flask(__name__, static_folder="frontend/build", static_url_path="")
 CORS(app)  # Allow frontend requests
 
 # Define Model Path
