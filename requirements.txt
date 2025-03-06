@@ -5,3 +5,5 @@ Pillow
 gunicorn
 gdown
 flask-cors
+flask-compress   # Optimizes static file serving (optional)
+werkzeug         # Helps with WSGI applications
