@@ -1,38 +1,40 @@
-from flask import Flask, send_from_directory, jsonify, request
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 from PIL import Image
 import gdown
 
 app = Flask(__name__, static_folder="frontend/build", static_url_path="")
+CORS(app)  # Enable CORS for frontend communication
 
-# Allow all origins with proper CORS setup
-CORS(app, resources={r"/predict": {"origins": "*"}})
-
-# Define Model Path
+# Model Path
 MODEL_DIR = "backend/models"
 MODEL_PATH = os.path.join(MODEL_DIR, "cotton_disease_model.h5")
+TFLITE_MODEL_PATH = os.path.join(MODEL_DIR, "cotton_disease_model.tflite")
 
-# Ensure 'models' directory exists
+# Ensure model directory exists
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Google Drive File ID
+# Google Drive Model File ID
 file_id = "1ly8VuMzeXr7MDWLIqZnb1GVSszqTbFIH"
 
-# Download model if it doesn't exist
+# Download Model if it doesn't exist
 if not os.path.exists(MODEL_PATH):
     print("Downloading model...")
     gdown.download(f"https://drive.google.com/uc?id={file_id}", MODEL_PATH, quiet=False)
 
-# Load Model
-try:
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print("Model loaded successfully!")
-except Exception as e:
-    print("Error loading model:", str(e))
-    model = None  # Prevent crashing if model fails to load
+# Lazy Model Loading
+model = None  # Load model only when needed
+
+def get_model():
+    global model
+    if model is None:
+        print("Loading model into memory...")
+        model = tf.keras.models.load_model(MODEL_PATH)
+        print("Model loaded successfully!")
+    return model
 
 # Class Labels
 CLASS_LABELS = ["Aphids", "Army Worm", "Bacterial Blight", "Healthy", "Powdery Mildew", "Target Spot"]
@@ -48,11 +50,10 @@ def preprocess_image(image):
         print("Error processing image:", str(e))
         return None
 
-# Prediction Route
+# Handle CORS Preflight Requests
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
     if request.method == "OPTIONS":
-        # Handle preflight requests properly
         response = jsonify({"message": "CORS Preflight OK"})
         response.headers.add("Access-Control-Allow-Origin", "*")
         response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -68,15 +69,13 @@ def predict():
     if processed_image is None:
         return jsonify({"error": "Invalid image"}), 400
 
-    if model is None:
-        return jsonify({"error": "Model failed to load"}), 500
-
+    model = get_model()  # Load model only when needed
     predictions = model.predict(processed_image)
     class_index = np.argmax(predictions)
     confidence = float(np.max(predictions))
 
     response = jsonify({"disease": CLASS_LABELS[class_index], "confidence": confidence})
-    response.headers.add("Access-Control-Allow-Origin", "*")  # Allow frontend requests
+    response.headers.add("Access-Control-Allow-Origin", "*")
     return response
 
 # Serve React Frontend
