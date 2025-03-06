@@ -8,8 +8,8 @@ import gdown
 
 app = Flask(__name__, static_folder="frontend/build", static_url_path="")
 
-# Allow CORS only for your Netlify frontend
-CORS(app, resources={r"/*": {"origins": "https://effervescent-scone-53bb1e.netlify.app"}})
+# Allow all origins with proper CORS setup
+CORS(app, resources={r"/predict": {"origins": "*"}})
 
 # Define Model Path
 MODEL_DIR = "backend/models"
@@ -29,9 +29,9 @@ if not os.path.exists(MODEL_PATH):
 # Load Model
 try:
     model = tf.keras.models.load_model(MODEL_PATH)
-    print("✅ Model loaded successfully!")
+    print("Model loaded successfully!")
 except Exception as e:
-    print("❌ Error loading model:", str(e))
+    print("Error loading model:", str(e))
     model = None  # Prevent crashing if model fails to load
 
 # Class Labels
@@ -45,18 +45,26 @@ def preprocess_image(image):
         image = np.expand_dims(image, axis=0)
         return image
     except Exception as e:
-        print("❌ Error processing image:", str(e))
+        print("Error processing image:", str(e))
         return None
 
 # Prediction Route
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
+    if request.method == "OPTIONS":
+        # Handle preflight requests properly
+        response = jsonify({"message": "CORS Preflight OK"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        return response, 200
+
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
 
     image = request.files["file"]
     processed_image = preprocess_image(image)
-    
+
     if processed_image is None:
         return jsonify({"error": "Invalid image"}), 400
 
@@ -67,7 +75,9 @@ def predict():
     class_index = np.argmax(predictions)
     confidence = float(np.max(predictions))
 
-    return jsonify({"disease": CLASS_LABELS[class_index], "confidence": confidence})
+    response = jsonify({"disease": CLASS_LABELS[class_index], "confidence": confidence})
+    response.headers.add("Access-Control-Allow-Origin", "*")  # Allow frontend requests
+    return response
 
 # Serve React Frontend
 @app.route("/", defaults={"path": ""})
@@ -78,5 +88,4 @@ def serve_react_app(path):
     return send_from_directory(app.static_folder, "index.html")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Use environment variable for deployment
-    app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(debug=True, port=5000)
